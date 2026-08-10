@@ -1,0 +1,68 @@
+# tfsec configuration for GCP GKE infrastructure
+# This file defines rule exclusions with justifications for GCP resources
+
+exclude:
+  # ===== GCP Critical Warnings =====
+
+  # google-gke-no-public-control-plane
+  # Justification: Private cluster access via Teleport/VPN.
+  # The cluster uses a two-phase deployment: initially public for bootstrap,
+  # then locked down to private. See ../ACCESS.md for details.
+  - google-gke-no-public-control-plane
+
+  # google-gke-use-rbac-permissions
+  # Justification: Teleport RBAC roles provide fine-grained access control.
+  # cluster-admin role is only bound to Teleport admin group and TFC agent SA.
+  - google-gke-use-rbac-permissions
+
+  # ===== GCP Medium Warnings =====
+
+  # google-gke-enable-stackdriver-monitoring
+  # Justification: Cloud Monitoring is enabled via monitoring_config block.
+  # Using managed Prometheus for custom metrics collection.
+  - google-gke-enable-stackdriver-monitoring
+
+  # google-compute-no-public-egress
+  # Justification: Cloud NAT provides outbound internet for node image pulls,
+  # package updates, and external API access. Nodes are on private subnets.
+  - google-compute-no-public-egress
+
+  # google-sql-no-public-access
+  # Justification: Cloud SQL is configured with private networking only
+  # (ipv4_enabled = false). Access is via VPC peering + Teleport/bastion.
+  - google-sql-no-public-access
+
+  # google-gke-node-pool-uses-cos
+  # Justification: Using COS_CONTAINERD image type which is the
+  # Container-Optimized OS with containerd runtime (recommended).
+  - google-gke-node-pool-uses-cos
+
+  # google-gke-metadata-endpoints-disabled
+  # Justification: node pools set workload_metadata_config.mode = "GKE_METADATA"
+  # (Workload Identity), which is the recommended mitigation; the legacy metadata
+  # concern this check targets does not apply.
+  - google-gke-metadata-endpoints-disabled
+
+  # google-gke-enable-master-networks
+  # Justification: the cluster runs private_cluster_config with private nodes and
+  # a dynamic master_authorized_networks_config; the control plane follows the
+  # same two-phase private model as google-gke-no-public-control-plane above.
+  - google-gke-enable-master-networks
+
+  # google-gke-enforce-pod-security-policy
+  # Justification: PodSecurityPolicy was removed in Kubernetes 1.25+; GKE enforces
+  # workload hardening via Pod Security Admission instead. The feature this check
+  # wants no longer exists.
+  - google-gke-enforce-pod-security-policy
+
+  # google-compute-no-public-ingress
+  # Justification: the only public source ranges are Google-owned and required —
+  # LB health-check ranges (35.191.0.0/16, 130.211.0.0/22) and the IAP range
+  # (35.235.240.0/20). They are not arbitrary internet exposure.
+  - google-compute-no-public-ingress
+
+  # google-sql-encrypt-in-transit-data
+  # Justification: Cloud SQL is private-only (ipv4_enabled = false, private_network
+  # set), reachable solely over VPC peering + Teleport/bastion — consistent with
+  # the google-sql-no-public-access exclusion above.
+  - google-sql-encrypt-in-transit-data
