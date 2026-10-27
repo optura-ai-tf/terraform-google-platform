@@ -536,6 +536,7 @@ terraform-docs --config .terraform-docs.yml ./gcp
 | <a name="requirement_google-beta"></a> [google-beta](#requirement\_google-beta) | >= 6.0 |
 | <a name="requirement_helm"></a> [helm](#requirement\_helm) | >= 3.1 |
 | <a name="requirement_http"></a> [http](#requirement\_http) | >= 3.4 |
+| <a name="requirement_kubectl"></a> [kubectl](#requirement\_kubectl) | ~> 1.14 |
 | <a name="requirement_kubernetes"></a> [kubernetes](#requirement\_kubernetes) | >= 2.38 |
 | <a name="requirement_random"></a> [random](#requirement\_random) | >= 3.7 |
 | <a name="requirement_time"></a> [time](#requirement\_time) | >= 0.12 |
@@ -547,6 +548,7 @@ terraform-docs --config .terraform-docs.yml ./gcp
 | <a name="provider_google"></a> [google](#provider\_google) | >= 6.0 |
 | <a name="provider_google-beta"></a> [google-beta](#provider\_google-beta) | >= 6.0 |
 | <a name="provider_helm"></a> [helm](#provider\_helm) | >= 3.1 |
+| <a name="provider_kubectl"></a> [kubectl](#provider\_kubectl) | ~> 1.14 |
 | <a name="provider_kubernetes"></a> [kubernetes](#provider\_kubernetes) | >= 2.38 |
 | <a name="provider_random"></a> [random](#provider\_random) | >= 3.7 |
 | <a name="provider_terraform"></a> [terraform](#provider\_terraform) | n/a |
@@ -625,18 +627,18 @@ No modules.
 | [google_storage_bucket_iam_member.logging_object_admin](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/storage_bucket_iam_member) | resource |
 | [google_storage_bucket_iam_member.storage_object_admin](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/storage_bucket_iam_member) | resource |
 | [helm_release.teleport_kube_agent](https://registry.terraform.io/providers/hashicorp/helm/latest/docs/resources/release) | resource |
-| [kubernetes_cluster_role.teleport_admin](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/cluster_role) | resource |
-| [kubernetes_cluster_role.teleport_viewer](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/cluster_role) | resource |
-| [kubernetes_cluster_role_binding.teleport_admin](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/cluster_role_binding) | resource |
-| [kubernetes_cluster_role_binding.teleport_viewer](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/cluster_role_binding) | resource |
-| [kubernetes_cluster_role_binding.tfc_agent](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/cluster_role_binding) | resource |
-| [kubernetes_config_map.cloudsql_iam_setup](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/config_map) | resource |
-| [kubernetes_deployment.tfc_agent](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/deployment) | resource |
+| [kubectl_manifest.cloudsql_bootstrap_creds](https://registry.terraform.io/providers/gavinbunney/kubectl/latest/docs/resources/manifest) | resource |
+| [kubectl_manifest.cloudsql_iam_setup](https://registry.terraform.io/providers/gavinbunney/kubectl/latest/docs/resources/manifest) | resource |
+| [kubectl_manifest.teleport_admin_binding](https://registry.terraform.io/providers/gavinbunney/kubectl/latest/docs/resources/manifest) | resource |
+| [kubectl_manifest.teleport_admin_role](https://registry.terraform.io/providers/gavinbunney/kubectl/latest/docs/resources/manifest) | resource |
+| [kubectl_manifest.teleport_viewer_binding](https://registry.terraform.io/providers/gavinbunney/kubectl/latest/docs/resources/manifest) | resource |
+| [kubectl_manifest.teleport_viewer_role](https://registry.terraform.io/providers/gavinbunney/kubectl/latest/docs/resources/manifest) | resource |
+| [kubectl_manifest.tfc_agent](https://registry.terraform.io/providers/gavinbunney/kubectl/latest/docs/resources/manifest) | resource |
+| [kubectl_manifest.tfc_agent_cluster_role_binding](https://registry.terraform.io/providers/gavinbunney/kubectl/latest/docs/resources/manifest) | resource |
+| [kubectl_manifest.tfc_agent_namespace](https://registry.terraform.io/providers/gavinbunney/kubectl/latest/docs/resources/manifest) | resource |
+| [kubectl_manifest.tfc_agent_service_account](https://registry.terraform.io/providers/gavinbunney/kubectl/latest/docs/resources/manifest) | resource |
+| [kubectl_manifest.tfc_agent_token](https://registry.terraform.io/providers/gavinbunney/kubectl/latest/docs/resources/manifest) | resource |
 | [kubernetes_job_v1.cloudsql_iam_bootstrap](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/job_v1) | resource |
-| [kubernetes_namespace.tfc_agent](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/namespace) | resource |
-| [kubernetes_secret.cloudsql_bootstrap_creds](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/secret) | resource |
-| [kubernetes_secret.tfc_agent_token](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/secret) | resource |
-| [kubernetes_service_account.tfc_agent](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/service_account) | resource |
 | [random_password.cloudsql](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
 | [terraform_data.cloudsql_iam_setup_hash](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/resources/data) | resource |
 | [terraform_data.teleport_validation](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/resources/data) | resource |
@@ -706,6 +708,7 @@ No modules.
 | <a name="input_services_cidr"></a> [services\_cidr](#input\_services\_cidr) | Secondary CIDR range for GKE services | `string` | `"10.8.0.0/20"` | no |
 | <a name="input_ssl_certificate_create"></a> [ssl\_certificate\_create](#input\_ssl\_certificate\_create) | Whether to create a Google-managed SSL certificate | `bool` | `false` | no |
 | <a name="input_ssl_certificate_domains"></a> [ssl\_certificate\_domains](#input\_ssl\_certificate\_domains) | List of domains for the Google-managed SSL certificate | `list(string)` | `[]` | no |
+| <a name="input_storage_general_cors_origins"></a> [storage\_general\_cors\_origins](#input\_storage\_general\_cors\_origins) | Browser origins allowed to call the general bucket directly (presigned uploads). Empty disables CORS, which blocks every browser upload. | `list(string)` | `[]` | no |
 | <a name="input_storage_general_enabled"></a> [storage\_general\_enabled](#input\_storage\_general\_enabled) | Whether to create a general purpose storage bucket | `bool` | `true` | no |
 | <a name="input_storage_general_lifecycle_rules"></a> [storage\_general\_lifecycle\_rules](#input\_storage\_general\_lifecycle\_rules) | Lifecycle rules for general storage bucket | <pre>object({<br/>    nearline_after_days = optional(number, 90)<br/>    noncurrent_days     = optional(number, 30)<br/>  })</pre> | `{}` | no |
 | <a name="input_storage_general_namespace"></a> [storage\_general\_namespace](#input\_storage\_general\_namespace) | Kubernetes namespace for general storage service account | `string` | `"default"` | no |

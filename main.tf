@@ -24,6 +24,10 @@ terraform {
       source  = "hashicorp/helm"
       version = ">= 3.1"
     }
+    kubectl = {
+      source  = "gavinbunney/kubectl"
+      version = "~> 1.14"
+    }
     random = {
       source  = "hashicorp/random"
       version = ">= 3.7"
@@ -72,6 +76,13 @@ provider "kubernetes" {
   host                   = local.is_in_cluster ? "https://kubernetes.default.svc" : "https://${google_container_cluster.main.endpoint}"
   token                  = local.is_in_cluster ? file("/var/run/secrets/kubernetes.io/serviceaccount/token") : data.google_client_config.default.access_token
   cluster_ca_certificate = local.is_in_cluster ? file("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt") : base64decode(google_container_cluster.main.master_auth[0].cluster_ca_certificate)
+}
+
+provider "kubectl" {
+  host                   = local.is_in_cluster ? "https://kubernetes.default.svc" : "https://${google_container_cluster.main.endpoint}"
+  token                  = local.is_in_cluster ? file("/var/run/secrets/kubernetes.io/serviceaccount/token") : data.google_client_config.default.access_token
+  cluster_ca_certificate = local.is_in_cluster ? file("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt") : base64decode(google_container_cluster.main.master_auth[0].cluster_ca_certificate)
+  load_config_file       = false
 }
 
 provider "helm" {

@@ -509,6 +509,12 @@ variable "storage_general_versioning" {
   default     = true
 }
 
+variable "storage_general_cors_origins" {
+  description = "Browser origins allowed to call the general bucket directly (presigned uploads). Empty disables CORS, which blocks every browser upload."
+  type        = list(string)
+  default     = []
+}
+
 variable "storage_general_lifecycle_rules" {
   description = "Lifecycle rules for general storage bucket"
   type = object({

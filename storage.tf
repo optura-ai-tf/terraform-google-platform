@@ -86,6 +86,18 @@ resource "google_storage_bucket" "storage" {
     enabled = var.storage_general_versioning
   }
 
+  # A presigned PUT is issued by the app but sent by the browser, so GCS
+  # answers the preflight itself.
+  dynamic "cors" {
+    for_each = length(var.storage_general_cors_origins) > 0 ? [1] : []
+    content {
+      origin          = var.storage_general_cors_origins
+      method          = ["GET", "HEAD", "PUT"]
+      response_header = ["Content-Type", "ETag"]
+      max_age_seconds = 3000
+    }
+  }
+
   # Lifecycle rules
   lifecycle_rule {
     action {

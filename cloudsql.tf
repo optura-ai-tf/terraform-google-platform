@@ -148,16 +148,10 @@ resource "google_sql_user" "teleport_iam" {
 # because Terraform cannot reach private Cloud SQL directly.
 # Runs once per named instance.
 
-resource "kubernetes_config_map" "cloudsql_iam_setup" {
-  for_each = var.database_enabled && var.access_mode == "teleport" && var.teleport_db_enabled ? var.databases : {}
-
-  metadata {
-    name      = "cloudsql-iam-setup${local.db_name_suffix[each.key]}"
-    namespace = "kube-system"
-  }
-
-  data = {
-    "setup.sql" = <<-EOT
+locals {
+  cloudsql_iam_setup_names       = { for k in keys(var.databases) : k => "cloudsql-iam-setup${local.db_name_suffix[k]}" }
+  cloudsql_bootstrap_creds_names = { for k in keys(var.databases) : k => "cloudsql-bootstrap-creds${local.db_name_suffix[k]}" }
+  cloudsql_iam_setup_sql = { for k, v in(var.database_enabled && var.access_mode == "teleport" && var.teleport_db_enabled ? var.databases : {}) : k => <<-EOT
       -- Grant permissions to Teleport IAM user
       -- Cloud SQL IAM username = SA email without .gserviceaccount.com
       DO $$
@@ -167,7 +161,7 @@ resource "kubernetes_config_map" "cloudsql_iam_setup" {
       BEGIN
         -- Grant connect and create on database (CREATE needed for extensions)
         EXECUTE format('GRANT CONNECT, CREATE ON DATABASE %I TO "%s"',
-          '${coalesce(each.value.db_name, var.database_name)}', iam_user);
+          '${coalesce(v.db_name, var.database_name)}', iam_user);
 
         -- Grant privileges on all current schemas (not just public)
         FOR schema_rec IN
@@ -196,27 +190,51 @@ resource "kubernetes_config_map" "cloudsql_iam_setup" {
       END $$;
     EOT
   }
+}
+
+resource "kubectl_manifest" "cloudsql_iam_setup" {
+  for_each = var.database_enabled && var.access_mode == "teleport" && var.teleport_db_enabled ? var.databases : {}
+
+  server_side_apply = true
+  force_conflicts   = true
+  yaml_body = yamlencode({
+    apiVersion = "v1"
+    kind       = "ConfigMap"
+    metadata = {
+      name      = local.cloudsql_iam_setup_names[each.key]
+      namespace = "kube-system"
+    }
+    data = {
+      "setup.sql" = local.cloudsql_iam_setup_sql[each.key]
+    }
+  })
 
   depends_on = [
     google_container_node_pool.pools
   ]
 }
 
-resource "kubernetes_secret" "cloudsql_bootstrap_creds" {
+resource "kubectl_manifest" "cloudsql_bootstrap_creds" {
   for_each = var.database_enabled && var.access_mode == "teleport" && var.teleport_db_enabled ? var.databases : {}
 
-  metadata {
-    name      = "cloudsql-bootstrap-creds${local.db_name_suffix[each.key]}"
-    namespace = "kube-system"
-  }
-
-  data = {
-    PGHOST     = google_sql_database_instance.main[each.key].private_ip_address
-    PGPORT     = "5432"
-    PGDATABASE = coalesce(each.value.db_name, var.database_name)
-    PGUSER     = coalesce(each.value.admin_username, var.database_admin_username)
-    PGPASSWORD = random_password.cloudsql[each.key].result
-  }
+  server_side_apply = true
+  force_conflicts   = true
+  yaml_body = yamlencode({
+    apiVersion = "v1"
+    kind       = "Secret"
+    type       = "Opaque"
+    metadata = {
+      name      = local.cloudsql_bootstrap_creds_names[each.key]
+      namespace = "kube-system"
+    }
+    data = {
+      PGHOST     = base64encode(google_sql_database_instance.main[each.key].private_ip_address)
+      PGPORT     = base64encode("5432")
+      PGDATABASE = base64encode(coalesce(each.value.db_name, var.database_name))
+      PGUSER     = base64encode(coalesce(each.value.admin_username, var.database_admin_username))
+      PGPASSWORD = base64encode(random_password.cloudsql[each.key].result)
+    }
+  })
 
   depends_on = [
     google_container_node_pool.pools
@@ -235,7 +253,7 @@ resource "terraform_data" "cloudsql_iam_setup_hash" {
 
   # `triggers_replace` (not `input`) so a SQL change renders as `-/+` in plan
   # output — clearer than the `~` update an `input` change would produce.
-  triggers_replace = [sha256(kubernetes_config_map.cloudsql_iam_setup[each.key].data["setup.sql"])]
+  triggers_replace = [sha256(local.cloudsql_iam_setup_sql[each.key])]
 }
 
 resource "kubernetes_job_v1" "cloudsql_iam_bootstrap" {
@@ -285,7 +303,7 @@ resource "kubernetes_job_v1" "cloudsql_iam_bootstrap" {
 
           env_from {
             secret_ref {
-              name = kubernetes_secret.cloudsql_bootstrap_creds[each.key].metadata[0].name
+              name = local.cloudsql_bootstrap_creds_names[each.key]
             }
           }
 
@@ -298,7 +316,7 @@ resource "kubernetes_job_v1" "cloudsql_iam_bootstrap" {
         volume {
           name = "scripts"
           config_map {
-            name = kubernetes_config_map.cloudsql_iam_setup[each.key].metadata[0].name
+            name = local.cloudsql_iam_setup_names[each.key]
           }
         }
       }
@@ -315,6 +333,8 @@ resource "kubernetes_job_v1" "cloudsql_iam_bootstrap" {
     google_sql_user.admin,
     google_sql_user.teleport_iam,
     google_container_node_pool.pools,
+    kubectl_manifest.cloudsql_iam_setup,
+    kubectl_manifest.cloudsql_bootstrap_creds,
   ]
 
   # Re-run the Job whenever the SQL hash changes. See `terraform_data.cloudsql_iam_setup_hash`
