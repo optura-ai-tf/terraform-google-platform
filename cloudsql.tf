@@ -149,6 +149,8 @@ resource "google_sql_user" "teleport_iam" {
 # Runs once per named instance.
 
 locals {
+  # Autopilot rejects workloads in kube-system, so the Job gets its own namespace there.
+  cloudsql_bootstrap_namespace   = var.autopilot_enabled ? "cloudsql-bootstrap" : "kube-system"
   cloudsql_iam_setup_names       = { for k in keys(var.databases) : k => "cloudsql-iam-setup${local.db_name_suffix[k]}" }
   cloudsql_bootstrap_creds_names = { for k in keys(var.databases) : k => "cloudsql-bootstrap-creds${local.db_name_suffix[k]}" }
   cloudsql_iam_setup_sql = { for k, v in(var.database_enabled && var.access_mode == "teleport" && var.teleport_db_enabled ? var.databases : {}) : k => <<-EOT
@@ -192,6 +194,20 @@ locals {
   }
 }
 
+resource "kubectl_manifest" "cloudsql_bootstrap_namespace" {
+  count = var.autopilot_enabled && var.database_enabled && var.access_mode == "teleport" && var.teleport_db_enabled ? 1 : 0
+
+  server_side_apply = true
+  force_conflicts   = true
+  yaml_body = yamlencode({
+    apiVersion = "v1"
+    kind       = "Namespace"
+    metadata = {
+      name = local.cloudsql_bootstrap_namespace
+    }
+  })
+}
+
 resource "kubectl_manifest" "cloudsql_iam_setup" {
   for_each = var.database_enabled && var.access_mode == "teleport" && var.teleport_db_enabled ? var.databases : {}
 
@@ -202,7 +218,7 @@ resource "kubectl_manifest" "cloudsql_iam_setup" {
     kind       = "ConfigMap"
     metadata = {
       name      = local.cloudsql_iam_setup_names[each.key]
-      namespace = "kube-system"
+      namespace = local.cloudsql_bootstrap_namespace
     }
     data = {
       "setup.sql" = local.cloudsql_iam_setup_sql[each.key]
@@ -210,7 +226,8 @@ resource "kubectl_manifest" "cloudsql_iam_setup" {
   })
 
   depends_on = [
-    google_container_node_pool.pools
+    google_container_node_pool.pools,
+    kubectl_manifest.cloudsql_bootstrap_namespace,
   ]
 }
 
@@ -225,7 +242,7 @@ resource "kubectl_manifest" "cloudsql_bootstrap_creds" {
     type       = "Opaque"
     metadata = {
       name      = local.cloudsql_bootstrap_creds_names[each.key]
-      namespace = "kube-system"
+      namespace = local.cloudsql_bootstrap_namespace
     }
     data = {
       PGHOST     = base64encode(google_sql_database_instance.main[each.key].private_ip_address)
@@ -237,7 +254,8 @@ resource "kubectl_manifest" "cloudsql_bootstrap_creds" {
   })
 
   depends_on = [
-    google_container_node_pool.pools
+    google_container_node_pool.pools,
+    kubectl_manifest.cloudsql_bootstrap_namespace,
   ]
 }
 
@@ -261,7 +279,7 @@ resource "kubernetes_job_v1" "cloudsql_iam_bootstrap" {
 
   metadata {
     name      = "cloudsql-iam-bootstrap${local.db_name_suffix[each.key]}"
-    namespace = "kube-system"
+    namespace = local.cloudsql_bootstrap_namespace
     labels = {
       app = "cloudsql-iam-bootstrap"
     }
@@ -280,7 +298,8 @@ resource "kubernetes_job_v1" "cloudsql_iam_bootstrap" {
       spec {
         restart_policy = "OnFailure"
 
-        node_selector = {
+        # Autopilot has no support pool; the one-shot Job runs on general-purpose nodes.
+        node_selector = var.autopilot_enabled ? {} : {
           "workload-type" = "support"
         }
 

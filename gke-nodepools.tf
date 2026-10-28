@@ -1,7 +1,7 @@
 # ===== GKE Node Pools =====
 
 resource "google_container_node_pool" "pools" {
-  for_each = var.node_pools
+  for_each = var.autopilot_enabled ? {} : var.node_pools
 
   name     = "${local.name_prefix}-${each.key}"
   location = var.region

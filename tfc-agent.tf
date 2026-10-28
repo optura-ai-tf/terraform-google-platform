@@ -140,7 +140,8 @@ resource "kubectl_manifest" "tfc_agent" {
         }
         spec = {
           serviceAccountName = "tfc-agent"
-          nodeSelector = {
+          # Autopilot has no support pool, so the agent drops the selector there.
+          nodeSelector = var.autopilot_enabled ? {} : {
             "workload-type" = "support"
           }
           containers = [{

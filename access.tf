@@ -241,6 +241,10 @@ resource "helm_release" "teleport_kube_agent" {
         name  = "labels.type"
         value = "kubernetes"
       },
+    ],
+    # Autopilot only accepts custom node labels as a required selector paired
+    # with a matching toleration, so the support-pool preference is Standard only.
+    var.autopilot_enabled ? [] : [
       # Node scheduling (prefer support nodes)
       {
         name  = "affinity.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].weight"
@@ -275,6 +279,8 @@ resource "helm_release" "teleport_kube_agent" {
         name  = "tolerations[0].effect"
         value = "NoSchedule"
       },
+    ],
+    [
       # Resource limits
       {
         name  = "resources.requests.cpu"

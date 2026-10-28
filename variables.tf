@@ -165,6 +165,12 @@ variable "enable_cluster_encryption" {
   default     = true
 }
 
+variable "autopilot_enabled" {
+  description = "Create a GKE Autopilot cluster instead of GKE Standard. Autopilot has no node pools, so node_pools is ignored. Changing this on an existing cluster replaces it."
+  type        = bool
+  default     = false
+}
+
 variable "release_channel" {
   description = "GKE release channel (REGULAR, RAPID, STABLE, UNSPECIFIED)"
   type        = string
@@ -179,7 +185,7 @@ variable "release_channel" {
 # ===== Node Pools =====
 
 variable "node_pools" {
-  description = "Map of GKE node pool configurations"
+  description = "Map of GKE node pool configurations. Ignored when autopilot_enabled = true."
   type = map(object({
     machine_type  = string
     min_count     = number

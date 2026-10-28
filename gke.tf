@@ -4,6 +4,11 @@ resource "google_container_cluster" "main" {
   name     = local.resource_names.gke
   location = var.region
 
+  # Autopilot: Google owns the nodes, so no node pools and no default pool to remove.
+  # null, not false, on Standard: the provider treats any set value as conflicting
+  # with network_policy, dns_cache_config and the other Standard-only blocks.
+  enable_autopilot = var.autopilot_enabled ? true : null
+
   # Use release channel for version management
   release_channel {
     channel = var.release_channel
@@ -20,8 +25,29 @@ resource "google_container_cluster" "main" {
   }
 
   # We manage node pools separately, remove default pool
-  remove_default_node_pool = true
-  initial_node_count       = 1
+  remove_default_node_pool = var.autopilot_enabled ? null : true
+  initial_node_count       = var.autopilot_enabled ? null : 1
+
+  # Autopilot nodes run as the module's node SA instead of the default compute SA.
+  dynamic "cluster_autoscaling" {
+    for_each = var.autopilot_enabled ? [1] : []
+    content {
+      auto_provisioning_defaults {
+        service_account = google_service_account.gke_nodes.email
+        oauth_scopes    = ["https://www.googleapis.com/auth/cloud-platform"]
+      }
+    }
+  }
+
+  # The firewall rules target this tag; Standard pools set it in gke-nodepools.tf.
+  dynamic "node_pool_auto_config" {
+    for_each = var.autopilot_enabled ? [1] : []
+    content {
+      network_tags {
+        tags = ["gke-${local.resource_names.gke}"]
+      }
+    }
+  }
 
   # Workload Identity for pod-level IAM
   workload_identity_config {
@@ -75,9 +101,12 @@ resource "google_container_cluster" "main" {
       disabled = false
     }
 
-    # Network Policy (Calico)
-    network_policy_config {
-      disabled = false
+    # Network Policy (Calico). Autopilot enforces policy through Dataplane V2.
+    dynamic "network_policy_config" {
+      for_each = var.autopilot_enabled ? [] : [1]
+      content {
+        disabled = false
+      }
     }
 
     # GCE Persistent Disk CSI Driver
@@ -85,9 +114,12 @@ resource "google_container_cluster" "main" {
       enabled = true
     }
 
-    # DNS Cache for improved DNS performance
-    dns_cache_config {
-      enabled = true
+    # DNS Cache for improved DNS performance. Always on in Autopilot.
+    dynamic "dns_cache_config" {
+      for_each = var.autopilot_enabled ? [] : [1]
+      content {
+        enabled = true
+      }
     }
   }
 
@@ -113,15 +145,19 @@ resource "google_container_cluster" "main" {
       "HPA"
     ] : ["SYSTEM_COMPONENTS"]
 
+    # Autopilot does not allow turning Managed Prometheus off.
     managed_prometheus {
-      enabled = var.monitoring_enabled
+      enabled = var.monitoring_enabled || var.autopilot_enabled
     }
   }
 
-  # Network policy
-  network_policy {
-    enabled  = true
-    provider = "CALICO"
+  # Network policy (Standard only; Autopilot uses Dataplane V2)
+  dynamic "network_policy" {
+    for_each = var.autopilot_enabled ? [] : [1]
+    content {
+      enabled  = true
+      provider = "CALICO"
+    }
   }
 
   # Maintenance window (2am-6am UTC daily)
@@ -144,6 +180,11 @@ resource "google_container_cluster" "main" {
   ]
 
   lifecycle {
+    precondition {
+      condition     = !var.autopilot_enabled || var.release_channel != "UNSPECIFIED"
+      error_message = "GKE Autopilot requires a release channel; set release_channel to REGULAR, RAPID, or STABLE."
+    }
+
     ignore_changes = [
       # Node pool changes managed separately
       node_config,

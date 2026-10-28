@@ -461,6 +461,33 @@ node_pools = {
 }
 ```
 
+### GKE Autopilot (`autopilot_enabled`)
+
+The module creates a GKE Standard cluster by default. Set `autopilot_enabled = true`
+to create an Autopilot cluster instead. This is a create time choice: flipping it on
+an existing cluster replaces the cluster.
+
+On Autopilot:
+
+- `node_pools` is ignored. Google provisions nodes per pod, running as the module's
+  node service account and carrying the `gke-<cluster>` network tag the firewall
+  rules target.
+- Calico, the NodeLocal DNSCache toggle and the Managed Prometheus toggle are not
+  set. Autopilot always runs Dataplane V2 network policy, NodeLocal DNSCache and
+  Managed Prometheus.
+- `release_channel` must not be `UNSPECIFIED`.
+- The Cloud SQL IAM bootstrap Job runs in a `cloudsql-bootstrap` namespace instead
+  of `kube-system`, and it, the TFC agent and the Teleport agent drop their
+  `workload-type: support` placement.
+- Workloads that pin `workload-type: <tier>` must also tolerate
+  `workload-type=<tier>:NoSchedule`, which makes Autopilot create separate nodes
+  for that tier. The gitops bases already carry both; scaffold the customer with
+  `opctl new customer --cloud gcp --autopilot`.
+
+```hcl
+autopilot_enabled = true
+```
+
 ---
 
 ## Database Access
@@ -628,6 +655,7 @@ No modules.
 | [google_storage_bucket_iam_member.storage_object_admin](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/storage_bucket_iam_member) | resource |
 | [helm_release.teleport_kube_agent](https://registry.terraform.io/providers/hashicorp/helm/latest/docs/resources/release) | resource |
 | [kubectl_manifest.cloudsql_bootstrap_creds](https://registry.terraform.io/providers/gavinbunney/kubectl/latest/docs/resources/manifest) | resource |
+| [kubectl_manifest.cloudsql_bootstrap_namespace](https://registry.terraform.io/providers/gavinbunney/kubectl/latest/docs/resources/manifest) | resource |
 | [kubectl_manifest.cloudsql_iam_setup](https://registry.terraform.io/providers/gavinbunney/kubectl/latest/docs/resources/manifest) | resource |
 | [kubectl_manifest.teleport_admin_binding](https://registry.terraform.io/providers/gavinbunney/kubectl/latest/docs/resources/manifest) | resource |
 | [kubectl_manifest.teleport_admin_role](https://registry.terraform.io/providers/gavinbunney/kubectl/latest/docs/resources/manifest) | resource |
@@ -658,6 +686,7 @@ No modules.
 |------|-------------|------|---------|:--------:|
 | <a name="input_access_mode"></a> [access\_mode](#input\_access\_mode) | Cluster access mode: 'teleport' for zero-trust access or 'vpn' for traditional VPN | `string` | `"vpn"` | no |
 | <a name="input_api_server_authorized_cidrs"></a> [api\_server\_authorized\_cidrs](#input\_api\_server\_authorized\_cidrs) | CIDRs authorized to access the GKE API server (empty = unrestricted when public) | `list(string)` | `[]` | no |
+| <a name="input_autopilot_enabled"></a> [autopilot\_enabled](#input\_autopilot\_enabled) | Create a GKE Autopilot cluster instead of GKE Standard. Autopilot has no node pools, so node\_pools is ignored. Changing this on an existing cluster replaces it. | `bool` | `false` | no |
 | <a name="input_cluster_admin_emails"></a> [cluster\_admin\_emails](#input\_cluster\_admin\_emails) | List of GCP user/group/service account emails to grant cluster-admin access | `list(string)` | `[]` | no |
 | <a name="input_create_firewall_rules"></a> [create\_firewall\_rules](#input\_create\_firewall\_rules) | Whether to create VPC firewall rules. Set to false when using an existing network with pre-configured rules. | `bool` | `true` | no |
 | <a name="input_create_network"></a> [create\_network](#input\_create\_network) | Whether to create a new VPC network. Set to false to use an existing network. | `bool` | `true` | no |
@@ -692,7 +721,7 @@ No modules.
 | <a name="input_labels"></a> [labels](#input\_labels) | Additional labels to apply to all resources | `map(string)` | `{}` | no |
 | <a name="input_master_ipv4_cidr_block"></a> [master\_ipv4\_cidr\_block](#input\_master\_ipv4\_cidr\_block) | CIDR block for GKE master nodes (must be /28, cannot overlap with other subnets) | `string` | `"172.16.0.0/28"` | no |
 | <a name="input_monitoring_enabled"></a> [monitoring\_enabled](#input\_monitoring\_enabled) | Whether to enable GKE monitoring (Cloud Monitoring integration) | `bool` | `true` | no |
-| <a name="input_node_pools"></a> [node\_pools](#input\_node\_pools) | Map of GKE node pool configurations | <pre>map(object({<br/>    machine_type  = string<br/>    min_count     = number<br/>    max_count     = number<br/>    desired_count = optional(number)<br/>    disk_size_gb  = number<br/>    disk_type     = optional(string, "pd-standard")<br/>    image_type    = optional(string, "COS_CONTAINERD")<br/>    spot          = optional(bool, false)<br/>    labels        = map(string)<br/>    taints = optional(list(object({<br/>      key    = string<br/>      value  = string<br/>      effect = string<br/>    })), [])<br/>  }))</pre> | <pre>{<br/>  "application": {<br/>    "desired_count": 1,<br/>    "disk_size_gb": 100,<br/>    "labels": {<br/>      "node-pool": "application",<br/>      "workload-type": "application"<br/>    },<br/>    "machine_type": "e2-medium",<br/>    "max_count": 3,<br/>    "min_count": 0<br/>  },<br/>  "support": {<br/>    "desired_count": 1,<br/>    "disk_size_gb": 50,<br/>    "labels": {<br/>      "node-pool": "support",<br/>      "workload-type": "support"<br/>    },<br/>    "machine_type": "e2-small",<br/>    "max_count": 2,<br/>    "min_count": 0<br/>  },<br/>  "system": {<br/>    "disk_size_gb": 50,<br/>    "labels": {<br/>      "node-pool": "system",<br/>      "workload-type": "system"<br/>    },<br/>    "machine_type": "e2-small",<br/>    "max_count": 2,<br/>    "min_count": 1,<br/>    "taints": [<br/>      {<br/>        "effect": "NO_SCHEDULE",<br/>        "key": "CriticalAddonsOnly",<br/>        "value": "true"<br/>      }<br/>    ]<br/>  }<br/>}</pre> | no |
+| <a name="input_node_pools"></a> [node\_pools](#input\_node\_pools) | Map of GKE node pool configurations. Ignored when autopilot\_enabled = true. | <pre>map(object({<br/>    machine_type  = string<br/>    min_count     = number<br/>    max_count     = number<br/>    desired_count = optional(number)<br/>    disk_size_gb  = number<br/>    disk_type     = optional(string, "pd-standard")<br/>    image_type    = optional(string, "COS_CONTAINERD")<br/>    spot          = optional(bool, false)<br/>    labels        = map(string)<br/>    taints = optional(list(object({<br/>      key    = string<br/>      value  = string<br/>      effect = string<br/>    })), [])<br/>  }))</pre> | <pre>{<br/>  "application": {<br/>    "desired_count": 1,<br/>    "disk_size_gb": 100,<br/>    "labels": {<br/>      "node-pool": "application",<br/>      "workload-type": "application"<br/>    },<br/>    "machine_type": "e2-medium",<br/>    "max_count": 3,<br/>    "min_count": 0<br/>  },<br/>  "support": {<br/>    "desired_count": 1,<br/>    "disk_size_gb": 50,<br/>    "labels": {<br/>      "node-pool": "support",<br/>      "workload-type": "support"<br/>    },<br/>    "machine_type": "e2-small",<br/>    "max_count": 2,<br/>    "min_count": 0<br/>  },<br/>  "system": {<br/>    "disk_size_gb": 50,<br/>    "labels": {<br/>      "node-pool": "system",<br/>      "workload-type": "system"<br/>    },<br/>    "machine_type": "e2-small",<br/>    "max_count": 2,<br/>    "min_count": 1,<br/>    "taints": [<br/>      {<br/>        "effect": "NO_SCHEDULE",<br/>        "key": "CriticalAddonsOnly",<br/>        "value": "true"<br/>      }<br/>    ]<br/>  }<br/>}</pre> | no |
 | <a name="input_pods_cidr"></a> [pods\_cidr](#input\_pods\_cidr) | Secondary CIDR range for GKE pods | `string` | `"10.4.0.0/14"` | no |
 | <a name="input_private_cluster_enabled"></a> [private\_cluster\_enabled](#input\_private\_cluster\_enabled) | Whether to enable private cluster (no public endpoint). Requires TFC agent or VPN. | `bool` | `false` | no |
 | <a name="input_project_name"></a> [project\_name](#input\_project\_name) | Project name used for resource naming (lowercase, 3-12 chars, alphanumeric and hyphens) | `string` | `"optura"` | no |
