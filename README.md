@@ -717,7 +717,7 @@ No modules.
 | <a name="input_existing_vpc_name"></a> [existing\_vpc\_name](#input\_existing\_vpc\_name) | Name of an existing VPC network to use (required when create\_network = false) | `string` | `""` | no |
 | <a name="input_existing_vpc_project"></a> [existing\_vpc\_project](#input\_existing\_vpc\_project) | Project ID of the existing VPC network (for Shared VPC). Defaults to current project. | `string` | `""` | no |
 | <a name="input_gcp_project_id"></a> [gcp\_project\_id](#input\_gcp\_project\_id) | GCP project ID for all resources | `string` | n/a | yes |
-| <a name="input_kubernetes_version"></a> [kubernetes\_version](#input\_kubernetes\_version) | Kubernetes version for GKE cluster | `string` | `"1.34"` | no |
+| <a name="input_kubernetes_version"></a> [kubernetes\_version](#input\_kubernetes\_version) | Kubernetes version for GKE cluster | `string` | `"1.35"` | no |
 | <a name="input_labels"></a> [labels](#input\_labels) | Additional labels to apply to all resources | `map(string)` | `{}` | no |
 | <a name="input_master_ipv4_cidr_block"></a> [master\_ipv4\_cidr\_block](#input\_master\_ipv4\_cidr\_block) | CIDR block for GKE master nodes (must be /28, cannot overlap with other subnets) | `string` | `"172.16.0.0/28"` | no |
 | <a name="input_monitoring_enabled"></a> [monitoring\_enabled](#input\_monitoring\_enabled) | Whether to enable GKE monitoring (Cloud Monitoring integration) | `bool` | `true` | no |

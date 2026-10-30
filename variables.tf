@@ -150,7 +150,7 @@ variable "create_private_service_connection" {
 variable "kubernetes_version" {
   description = "Kubernetes version for GKE cluster"
   type        = string
-  default     = "1.34"
+  default     = "1.35"
 }
 
 variable "api_server_authorized_cidrs" {
