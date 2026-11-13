@@ -14,6 +14,7 @@ resource "google_container_node_pool" "pools" {
   }
 
   initial_node_count = coalesce(each.value.desired_count, each.value.min_count)
+  max_pods_per_node  = var.max_pods_per_node
 
   # Node configuration
   node_config {

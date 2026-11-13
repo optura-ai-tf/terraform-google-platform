@@ -368,7 +368,7 @@ Set `access_mode = "teleport"` to deploy a Teleport agent. When set, also config
 |---|---|---|
 | `teleport_proxy_address` | yes | The Teleport proxy to connect to (e.g., `teleport.example.com:443`) |
 | `teleport_agent_chart_repository` | yes | Helm repo for the teleport-kube-agent chart (e.g. `https://charts.releases.teleport.dev`, or an OCI mirror) |
-| `teleport_agent_image` | no | Agent image; empty uses the chart's default |
+| `teleport_agent_image` | no | Enterprise agent image (`teleport-ent-distroless`); empty uses the chart's default |
 | `teleport_join_token` | yes | Source from a root variable / secret, not hard-coded |
 | `teleport_ca_pin` | recommended (prod) | CA pin for secure agent joining |
 | `teleport_db_enabled` | `true` | Also enable Teleport database access. Requires `database_enabled = true`. |
@@ -557,7 +557,7 @@ terraform-docs --config .terraform-docs.yml ./gcp
 ## Requirements
 
 | Name | Version |
-|------|---------|
+| ---- | ------- |
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.9.0 |
 | <a name="requirement_google"></a> [google](#requirement\_google) | >= 6.0 |
 | <a name="requirement_google-beta"></a> [google-beta](#requirement\_google-beta) | >= 6.0 |
@@ -571,7 +571,7 @@ terraform-docs --config .terraform-docs.yml ./gcp
 ## Providers
 
 | Name | Version |
-|------|---------|
+| ---- | ------- |
 | <a name="provider_google"></a> [google](#provider\_google) | >= 6.0 |
 | <a name="provider_google-beta"></a> [google-beta](#provider\_google-beta) | >= 6.0 |
 | <a name="provider_helm"></a> [helm](#provider\_helm) | >= 3.1 |
@@ -588,7 +588,7 @@ No modules.
 ## Resources
 
 | Name | Type |
-|------|------|
+| ---- | ---- |
 | [google-beta_google_project_service_identity.cloudsql_sa](https://registry.terraform.io/providers/hashicorp/google-beta/latest/docs/resources/google_project_service_identity) | resource |
 | [google_artifact_registry_repository.main](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/artifact_registry_repository) | resource |
 | [google_compute_firewall.egress_allow_external](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_firewall) | resource |
@@ -683,7 +683,7 @@ No modules.
 ## Inputs
 
 | Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:--------:|
+| ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_access_mode"></a> [access\_mode](#input\_access\_mode) | Cluster access mode: 'teleport' for zero-trust access or 'vpn' for traditional VPN | `string` | `"vpn"` | no |
 | <a name="input_api_server_authorized_cidrs"></a> [api\_server\_authorized\_cidrs](#input\_api\_server\_authorized\_cidrs) | CIDRs authorized to access the GKE API server (empty = unrestricted when public) | `list(string)` | `[]` | no |
 | <a name="input_autopilot_enabled"></a> [autopilot\_enabled](#input\_autopilot\_enabled) | Create a GKE Autopilot cluster instead of GKE Standard. Autopilot has no node pools, so node\_pools is ignored. Changing this on an existing cluster replaces it. | `bool` | `false` | no |
@@ -720,6 +720,7 @@ No modules.
 | <a name="input_kubernetes_version"></a> [kubernetes\_version](#input\_kubernetes\_version) | Kubernetes version for GKE cluster | `string` | `"1.35"` | no |
 | <a name="input_labels"></a> [labels](#input\_labels) | Additional labels to apply to all resources | `map(string)` | `{}` | no |
 | <a name="input_master_ipv4_cidr_block"></a> [master\_ipv4\_cidr\_block](#input\_master\_ipv4\_cidr\_block) | CIDR block for GKE master nodes (must be /28, cannot overlap with other subnets) | `string` | `"172.16.0.0/28"` | no |
+| <a name="input_max_pods_per_node"></a> [max\_pods\_per\_node](#input\_max\_pods\_per\_node) | Maximum pods per node for every node pool. 110 is the GKE Standard default. Each node reserves a pods\_cidr block of at least twice this value (110 takes a /24), so raising it lowers the node count pods\_cidr can hold. Set it before the first apply: changing it later destroys every node pool, system included, before creating the new ones, so the cluster has no nodes until they are ready. Ignored when autopilot\_enabled = true. | `number` | `110` | no |
 | <a name="input_monitoring_enabled"></a> [monitoring\_enabled](#input\_monitoring\_enabled) | Whether to enable GKE monitoring (Cloud Monitoring integration) | `bool` | `true` | no |
 | <a name="input_node_pools"></a> [node\_pools](#input\_node\_pools) | Map of GKE node pool configurations. Ignored when autopilot\_enabled = true. | <pre>map(object({<br/>    machine_type  = string<br/>    min_count     = number<br/>    max_count     = number<br/>    desired_count = optional(number)<br/>    disk_size_gb  = number<br/>    disk_type     = optional(string, "pd-standard")<br/>    image_type    = optional(string, "COS_CONTAINERD")<br/>    spot          = optional(bool, false)<br/>    labels        = map(string)<br/>    taints = optional(list(object({<br/>      key    = string<br/>      value  = string<br/>      effect = string<br/>    })), [])<br/>  }))</pre> | <pre>{<br/>  "application": {<br/>    "desired_count": 1,<br/>    "disk_size_gb": 100,<br/>    "labels": {<br/>      "node-pool": "application",<br/>      "workload-type": "application"<br/>    },<br/>    "machine_type": "e2-medium",<br/>    "max_count": 3,<br/>    "min_count": 0<br/>  },<br/>  "support": {<br/>    "desired_count": 1,<br/>    "disk_size_gb": 50,<br/>    "labels": {<br/>      "node-pool": "support",<br/>      "workload-type": "support"<br/>    },<br/>    "machine_type": "e2-small",<br/>    "max_count": 2,<br/>    "min_count": 0<br/>  },<br/>  "system": {<br/>    "disk_size_gb": 50,<br/>    "labels": {<br/>      "node-pool": "system",<br/>      "workload-type": "system"<br/>    },<br/>    "machine_type": "e2-small",<br/>    "max_count": 2,<br/>    "min_count": 1,<br/>    "taints": [<br/>      {<br/>        "effect": "NO_SCHEDULE",<br/>        "key": "CriticalAddonsOnly",<br/>        "value": "true"<br/>      }<br/>    ]<br/>  }<br/>}</pre> | no |
 | <a name="input_pods_cidr"></a> [pods\_cidr](#input\_pods\_cidr) | Secondary CIDR range for GKE pods | `string` | `"10.4.0.0/14"` | no |
@@ -749,13 +750,13 @@ No modules.
 | <a name="input_storage_logging_service_account"></a> [storage\_logging\_service\_account](#input\_storage\_logging\_service\_account) | Kubernetes service account name for logging storage access | `string` | `"loki"` | no |
 | <a name="input_subnet_cidr"></a> [subnet\_cidr](#input\_subnet\_cidr) | CIDR range for the primary node subnet | `string` | `"10.0.0.0/20"` | no |
 | <a name="input_teleport_agent_chart_repository"></a> [teleport\_agent\_chart\_repository](#input\_teleport\_agent\_chart\_repository) | Helm repository for the teleport-kube-agent chart (e.g. https://charts.releases.teleport.dev or oci://your-registry/charts). Required when access\_mode = teleport — supply your own. | `string` | `""` | no |
-| <a name="input_teleport_agent_image"></a> [teleport\_agent\_image](#input\_teleport\_agent\_image) | Container image reference for the Teleport agent (e.g. your-registry/teleport-distroless). Leave empty to use the chart's default image; set to pull from your own registry (required for egress-restricted clusters). | `string` | `""` | no |
+| <a name="input_teleport_agent_image"></a> [teleport\_agent\_image](#input\_teleport\_agent\_image) | Container image reference for the Teleport agent (e.g. your-registry/teleport-ent-distroless, the Enterprise image). Leave empty to use the chart's default image; set to pull from your own registry (required for egress-restricted clusters). | `string` | `""` | no |
 | <a name="input_teleport_ca_pin"></a> [teleport\_ca\_pin](#input\_teleport\_ca\_pin) | Teleport CA pin for secure joining | `string` | `""` | no |
 | <a name="input_teleport_db_enabled"></a> [teleport\_db\_enabled](#input\_teleport\_db\_enabled) | Whether to enable Teleport database access agent for Cloud SQL | `bool` | `true` | no |
 | <a name="input_teleport_gateway_ip"></a> [teleport\_gateway\_ip](#input\_teleport\_gateway\_ip) | Static IP of the egress gateway proxy. When set, hostAliases route the Teleport proxy hostname through this IP so all agent traffic exits via a single static IP. Defaults to null (disabled) — supply your deployment's egress IP. | `string` | `null` | no |
 | <a name="input_teleport_join_token"></a> [teleport\_join\_token](#input\_teleport\_join\_token) | Teleport join token for Kubernetes agent | `string` | `""` | no |
 | <a name="input_teleport_proxy_address"></a> [teleport\_proxy\_address](#input\_teleport\_proxy\_address) | Teleport proxy address as host:port (required when access\_mode = teleport). Defaults to empty — supply your own Teleport proxy. | `string` | `""` | no |
-| <a name="input_teleport_version"></a> [teleport\_version](#input\_teleport\_version) | Teleport agent Helm chart version | `string` | `"18.5.1"` | no |
+| <a name="input_teleport_version"></a> [teleport\_version](#input\_teleport\_version) | teleport-kube-agent chart version. Must not be newer than the Teleport Cloud control plane. | `string` | `"18.11.7"` | no |
 | <a name="input_tfc_agent_enabled"></a> [tfc\_agent\_enabled](#input\_tfc\_agent\_enabled) | Whether to deploy a Terraform Cloud agent inside the cluster | `bool` | `false` | no |
 | <a name="input_tfc_agent_token"></a> [tfc\_agent\_token](#input\_tfc\_agent\_token) | Terraform Cloud agent token | `string` | `null` | no |
 | <a name="input_tfc_agent_version"></a> [tfc\_agent\_version](#input\_tfc\_agent\_version) | Terraform Cloud agent Docker image version | `string` | `"1.28.5"` | no |
@@ -767,7 +768,7 @@ No modules.
 ## Outputs
 
 | Name | Description |
-|------|-------------|
+| ---- | ----------- |
 | <a name="output_access_mode"></a> [access\_mode](#output\_access\_mode) | Configured access mode (teleport or vpn) |
 | <a name="output_api_endpoint_access_type"></a> [api\_endpoint\_access\_type](#output\_api\_endpoint\_access\_type) | Whether the API server endpoint is public or private |
 | <a name="output_cluster_ca_certificate"></a> [cluster\_ca\_certificate](#output\_cluster\_ca\_certificate) | Base64 encoded cluster CA certificate |

@@ -245,6 +245,17 @@ variable "node_pools" {
   }
 }
 
+variable "max_pods_per_node" {
+  description = "Maximum pods per node for every node pool. 110 is the GKE Standard default. Each node reserves a pods_cidr block of at least twice this value (110 takes a /24), so raising it lowers the node count pods_cidr can hold. Set it before the first apply: changing it later destroys every node pool, system included, before creating the new ones, so the cluster has no nodes until they are ready. Ignored when autopilot_enabled = true."
+  type        = number
+  default     = 110
+
+  validation {
+    condition     = var.max_pods_per_node >= 8 && var.max_pods_per_node <= 256
+    error_message = "max_pods_per_node must be between 8 and 256."
+  }
+}
+
 # ===== Artifact Registry Configuration =====
 
 variable "registry_enabled" {
@@ -588,9 +599,9 @@ variable "teleport_ca_pin" {
 }
 
 variable "teleport_version" {
-  description = "Teleport agent Helm chart version"
+  description = "teleport-kube-agent chart version. Must not be newer than the Teleport Cloud control plane."
   type        = string
-  default     = "18.5.1"
+  default     = "18.11.7"
 }
 
 variable "teleport_agent_chart_repository" {
@@ -600,7 +611,7 @@ variable "teleport_agent_chart_repository" {
 }
 
 variable "teleport_agent_image" {
-  description = "Container image reference for the Teleport agent (e.g. your-registry/teleport-distroless). Leave empty to use the chart's default image; set to pull from your own registry (required for egress-restricted clusters)."
+  description = "Container image reference for the Teleport agent (e.g. your-registry/teleport-ent-distroless, the Enterprise image). Leave empty to use the chart's default image; set to pull from your own registry (required for egress-restricted clusters)."
   type        = string
   default     = ""
 }
